@@ -1867,7 +1867,11 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 			var line = document.GetLineByNumber(lineNr);
 			for (int j = line.Offset; j < line.EndOffset; j++) {
 				char ch = document.GetCharAt(j);
-				if (!char.IsWhiteSpace(ch)) {
+                if (!char.IsWhiteSpace(ch))
+                {
+                    int lenght = j - line.Offset - 1;
+                    if (lenght < 0)
+                        return "";
 					return document.GetText(line.Offset, j - line.Offset - 1);
 				}
 			}
