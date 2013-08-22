@@ -61,7 +61,7 @@ class Middle : Base {
 class Derived : Middle {
 	public override void Method() {}
 }";
-			var unresolvedFile = Parse(program);
+			Parse(program);
 			ITypeDefinition derived = compilation.MainAssembly.GetTypeDefinition(new TopLevelTypeName("Derived"));
 			var rr = lookup.Lookup(new ResolveResult(derived), "Method", EmptyList<IType>.Instance, true) as MethodGroupResolveResult;
 			Assert.AreEqual(2, rr.MethodsGroupedByDeclaringType.Count());
@@ -88,7 +88,7 @@ class Derived : Base<int> {
 	public override void Method(int a) {}
 	public override void Method(string a) {}
 }";
-			var unresolvedFile = Parse(program);
+			Parse(program);
 			ITypeDefinition derived = compilation.MainAssembly.GetTypeDefinition(new TopLevelTypeName("Derived"));
 			var rr = lookup.Lookup(new ResolveResult(derived), "Method", EmptyList<IType>.Instance, true) as MethodGroupResolveResult;
 			Assert.AreEqual(2, rr.MethodsGroupedByDeclaringType.Count());
@@ -116,7 +116,7 @@ class Base {
 class Derived : Base {
 	public override void Method<S>(S a) {}
 }";
-			var unresolvedFile = Parse(program);
+			Parse(program);
 			ITypeDefinition derived = compilation.MainAssembly.GetTypeDefinition(new TopLevelTypeName("Derived"));
 			var rr = lookup.Lookup(new ResolveResult(derived), "Method", EmptyList<IType>.Instance, true) as MethodGroupResolveResult;
 			Assert.AreEqual(1, rr.MethodsGroupedByDeclaringType.Count());
@@ -163,7 +163,7 @@ class Derived : Base {
 			Assert.AreEqual("Test.Field", rr.Member.FullName);
 			Assert.IsTrue(rr.TargetResult is TypeResolveResult);
 		}
-		
+
 		[Test]
 		public void InstanceMethodImplicitThis()
 		{
@@ -562,6 +562,38 @@ public class G<U, V> : IA<$G<V, string>$>
 			Assert.AreEqual(2, baseType.TypeParameterCount);
 			Assert.AreEqual("System.String", baseType.TypeArguments [0].FullName);
 			Assert.AreEqual("System.String", baseType.TypeArguments [1].FullName);
+		}
+
+		[Test]
+		public void FixedFieldTest()
+		{
+			string program = @"unsafe struct Test {
+	fixed int Field[8];
+	int M() { return $Field$; }
+}";
+			var rr = Resolve<MemberResolveResult>(program);
+			Assert.AreEqual("Test.Field", rr.Member.FullName);
+		}
+
+		[Test]
+		public void FixedFieldDeclarationTest()
+		{
+			string program = @"unsafe struct Test {
+	fixed int $Field[8]$;
+}";
+			var rr = Resolve<MemberResolveResult>(program);
+			Assert.AreEqual("Test.Field", rr.Member.FullName);
+		}
+
+
+		[Test]
+		public void FixedFieldDeclarationTestCase2()
+		{
+			string program = @"unsafe struct Test {
+	fixed int foo[12], $Field[8]$;
+}";
+			var rr = Resolve<MemberResolveResult>(program);
+			Assert.AreEqual("Test.Field", rr.Member.FullName);
 		}
 	}
 }

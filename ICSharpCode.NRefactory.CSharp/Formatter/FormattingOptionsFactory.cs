@@ -71,9 +71,9 @@ namespace ICSharpCode.NRefactory.CSharp
 				PropertyBraceStyle = BraceStyle.EndOfLine,
 				PropertyGetBraceStyle = BraceStyle.EndOfLine,
 				PropertySetBraceStyle = BraceStyle.EndOfLine,
-				AllowPropertyGetBlockInline = true,
-				AllowPropertySetBlockInline = true,
-	
+				SimpleGetBlockFormatting = PropertyFormatting.AllowOneLine,
+				SimpleSetBlockFormatting = PropertyFormatting.AllowOneLine,
+
 				EventBraceStyle = BraceStyle.EndOfLine,
 				EventAddBraceStyle = BraceStyle.EndOfLine,
 				EventRemoveBraceStyle = BraceStyle.EndOfLine,
@@ -151,7 +151,9 @@ namespace ICSharpCode.NRefactory.CSharp
 				
 				AlignEmbeddedIfStatements = true,
 				AlignEmbeddedUsingStatements = true,
-				PropertyFormatting = PropertyFormatting.AllowOneLine,
+				SimplePropertyFormatting = PropertyFormatting.AllowOneLine,
+				AutoPropertyFormatting = PropertyFormatting.AllowOneLine,
+				EmptyLineFormatting = EmptyLineFormatting.DoNotIndent,
 				SpaceBeforeMethodDeclarationParameterComma = false,
 				SpaceAfterMethodDeclarationParameterComma = true,
 				SpaceAfterDelegateDeclarationParameterComma = true,
@@ -164,6 +166,7 @@ namespace ICSharpCode.NRefactory.CSharp
 				SpaceWithinIndexerDeclarationBracket = false,
 				SpaceBeforeIndexerDeclarationParameterComma = false,
 				SpaceInNamedArgumentAfterDoubleColon = true,
+				RemoveEndOfLineWhiteSpace = true,
 			
 				SpaceAfterIndexerDeclarationParameterComma = true,
 				
@@ -176,6 +179,8 @@ namespace ICSharpCode.NRefactory.CSharp
 				BlankLinesBetweenFields = 0,
 				BlankLinesBetweenEventFields = 0,
 				BlankLinesBetweenMembers = 1,
+				BlankLinesAroundRegion = 1,
+				BlankLinesInsideRegion = 1,
 				AlignToFirstIndexerArgument = true,
 				AlignToFirstIndexerDeclarationParameter = true,
 				AlignToFirstMethodCallArgument = true,
@@ -233,8 +238,8 @@ namespace ICSharpCode.NRefactory.CSharp
 				PropertyBraceStyle = BraceStyle.EndOfLine,
 				PropertyGetBraceStyle = BraceStyle.EndOfLine,
 				PropertySetBraceStyle = BraceStyle.EndOfLine,
-				AllowPropertyGetBlockInline = true,
-				AllowPropertySetBlockInline = true,
+				SimpleGetBlockFormatting = PropertyFormatting.AllowOneLine,
+				SimpleSetBlockFormatting = PropertyFormatting.AllowOneLine,
 	
 				EventBraceStyle = BraceStyle.EndOfLine,
 				EventAddBraceStyle = BraceStyle.EndOfLine,
@@ -314,7 +319,9 @@ namespace ICSharpCode.NRefactory.CSharp
 				
 				AlignEmbeddedIfStatements = true,
 				AlignEmbeddedUsingStatements = true,
-				PropertyFormatting = PropertyFormatting.AllowOneLine,
+				SimplePropertyFormatting = PropertyFormatting.AllowOneLine,
+				AutoPropertyFormatting = PropertyFormatting.AllowOneLine,
+				EmptyLineFormatting = EmptyLineFormatting.DoNotIndent,
 				SpaceBeforeMethodDeclarationParameterComma = false,
 				SpaceAfterMethodDeclarationParameterComma = true,
 				SpaceAfterDelegateDeclarationParameterComma = true,
@@ -328,6 +335,7 @@ namespace ICSharpCode.NRefactory.CSharp
 				SpaceInNamedArgumentAfterDoubleColon = true,
 			
 				SpaceAfterIndexerDeclarationParameterComma = true,
+				RemoveEndOfLineWhiteSpace = true,
 				
 				BlankLinesBeforeUsings = 0,
 				BlankLinesAfterUsings = 1,
@@ -337,6 +345,8 @@ namespace ICSharpCode.NRefactory.CSharp
 				BlankLinesBetweenFields = 0,
 				BlankLinesBetweenEventFields = 0,
 				BlankLinesBetweenMembers = 1,
+				BlankLinesAroundRegion = 1,
+				BlankLinesInsideRegion = 1,
 	
 				KeepCommentsAtFirstColumn = true,
 				ChainedMethodCallWrapping = Wrapping.DoNotChange,

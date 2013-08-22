@@ -105,7 +105,7 @@ namespace ICSharpCode.NRefactory.CSharp
 
 			ForceSpacesAfter(foreachStatement.LParToken, policy.SpacesWithinForeachParentheses);
 			ForceSpacesBefore(foreachStatement.RParToken, policy.SpacesWithinForeachParentheses);
-
+			
 			FixEmbeddedStatment(policy.StatementBraceStyle, foreachStatement.EmbeddedStatement);
 		}
 
@@ -148,8 +148,10 @@ namespace ICSharpCode.NRefactory.CSharp
 			if (isBlock) {
 				VisitBlockWithoutFixingBraces((BlockStatement)node, false);
 			} else {
-				if (!statementAlreadyIndented)
-					FixStatementIndentation(node.StartLocation);
+				if (!statementAlreadyIndented) {
+					PlaceOnNewLine(policy.EmbeddedStatementPlacement, node);
+					nextStatementIndent = null;
+				}
 				node.AcceptVisitor(this);
 			}
 			if (pushed)
@@ -177,7 +179,7 @@ namespace ICSharpCode.NRefactory.CSharp
 			for (int offset = startOffset - 1; offset >= 0; offset--) {
 				char ch = document.GetCharAt(offset);
 				if (ch != ' ' && ch != '\t') {
-					return ch == '\n' || ch == '\r';
+					return NewLine.IsNewLine (ch);
 				}
 			}
 			return true;
@@ -257,10 +259,6 @@ namespace ICSharpCode.NRefactory.CSharp
 
 			ForceSpacesAfter(ifElseStatement.LParToken, policy.SpacesWithinIfParentheses);
 			ForceSpacesBefore(ifElseStatement.RParToken, policy.SpacesWithinIfParentheses);
-
-			if (!(ifElseStatement.Parent is IfElseStatement && ((IfElseStatement)ifElseStatement.Parent).FalseStatement == ifElseStatement)) {
-				FixStatementIndentation(ifElseStatement.StartLocation);
-			}
 
 			if (!ifElseStatement.Condition.IsNull) {
 				ifElseStatement.Condition.AcceptVisitor(this);

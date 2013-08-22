@@ -39,6 +39,7 @@ using ICSharpCode.NRefactory.TypeSystem;
 using NUnit.Framework;
 using ICSharpCode.NRefactory.CSharp.Resolver;
 using ICSharpCode.NRefactory.CSharp.Refactoring;
+using System.Threading.Tasks;
 
 namespace ICSharpCode.NRefactory.CSharp.CodeCompletion
 {
@@ -70,12 +71,12 @@ namespace ICSharpCode.NRefactory.CSharp.CodeCompletion
 		public class TestFactory
 		: ICompletionDataFactory
 		{
-			readonly CSharpResolver state;
+//			readonly CSharpResolver state;
 			readonly TypeSystemAstBuilder builder;
 
 			public TestFactory(CSharpResolver state)
 			{
-				this.state = state;
+//				this.state = state;
 				builder = new TypeSystemAstBuilder(state);
 				builder.ConvertUnboundTypeArguments = true;
 			}
@@ -207,7 +208,7 @@ namespace ICSharpCode.NRefactory.CSharp.CodeCompletion
 				return new CompletionData (entity.Name);
 			}
 
-			public ICompletionData CreateTypeCompletionData (ICSharpCode.NRefactory.TypeSystem.IType type, bool fullName, bool isInAttributeContext)
+			public ICompletionData CreateTypeCompletionData (ICSharpCode.NRefactory.TypeSystem.IType type, bool fullName, bool isInAttributeContext, bool addForTypeCreation)
 			{
 				string name = fullName ? builder.ConvertType(type).ToString() : type.Name; 
 				if (isInAttributeContext && name.EndsWith("Attribute", StringComparison.Ordinal) && name.Length > "Attribute".Length) {
@@ -224,6 +225,11 @@ namespace ICSharpCode.NRefactory.CSharp.CodeCompletion
 
 
 			public ICompletionData CreateLiteralCompletionData (string title, string description, string insertText)
+			{
+				return new CompletionData (title);
+			}
+
+			public ICompletionData CreateXmlDocCompletionData (string title, string description, string insertText)
 			{
 				return new CompletionData (title);
 			}
@@ -258,7 +264,7 @@ namespace ICSharpCode.NRefactory.CSharp.CodeCompletion
 				return new OverrideCompletionData (m.Name, declarationBegin);
 			}
 
-			public ICompletionData CreateImportCompletionData(IType type, bool useFullName)
+			public ICompletionData CreateImportCompletionData(IType type, bool useFullName, bool addForTypeCreation)
 			{
 				return new ImportCompletionData (type, useFullName);
 			}
@@ -267,7 +273,12 @@ namespace ICSharpCode.NRefactory.CSharp.CodeCompletion
 			{
 				return Enumerable.Empty<ICompletionData> ();
 			}
-			
+
+			public ICompletionData CreateFormatItemCompletionData(string format, string description, object example)
+			{
+				return new CompletionData (format + " - " + description +":" + example);
+			}
+
 			public IEnumerable<ICompletionData> CreatePreProcessorDefinesCompletionData ()
 			{
 				yield return new CompletionData ("DEBUG");
@@ -373,18 +384,20 @@ namespace ICSharpCode.NRefactory.CSharp.CodeCompletion
 				mb.AddSymbol(sym);
 			}
 			var engine = new CSharpCompletionEngine(doc, mb, new TestFactory(new CSharpResolver (rctx)), pctx, rctx);
-
+			engine.AutomaticallyAddImports = true;
 			engine.EolMarker = Environment.NewLine;
 			engine.FormattingPolicy = FormattingOptionsFactory.CreateMono();
 			return engine;
 		}
-
-		public static CompletionDataList CreateProvider(string text, bool isCtrlSpace, params IUnresolvedAssembly[] references)
+		
+		public static CompletionDataList CreateProvider(string text, bool isCtrlSpace, Action<CSharpCompletionEngine> engineCallback, params IUnresolvedAssembly[] references)
 		{
 			int cursorPosition;
 			var engine = CreateEngine(text, out cursorPosition, references);
+			if (engineCallback != null)
+				engineCallback(engine);
 			var data = engine.GetCompletionData (cursorPosition, isCtrlSpace);
-			
+
 			return new CompletionDataList () {
 				Data = data,
 				AutoCompleteEmptyMatch = engine.AutoCompleteEmptyMatch,
@@ -393,6 +406,11 @@ namespace ICSharpCode.NRefactory.CSharp.CodeCompletion
 			};
 		}
 		
+		public static CompletionDataList CreateProvider(string text, bool isCtrlSpace, params IUnresolvedAssembly[] references)
+		{
+			return CreateProvider(text, isCtrlSpace, null, references);
+		}
+
 		Tuple<ReadOnlyDocument, CSharpCompletionEngine> GetContent(string text, SyntaxTree syntaxTree)
 		{
 			var doc = new ReadOnlyDocument(text);
@@ -4291,7 +4309,7 @@ public class Test
 @"
 public class Test
 {
-	$public $
+	$public p$
 }
 
 ");
@@ -6083,5 +6101,183 @@ public class Test
 			Assert.IsTrue(provider == null || provider.Count == 0);
 		}
 
+		[Ignore("Parser bug")]
+		[Test]
+		public void TestBugWithLambdaParameter()
+		{
+			CombinedProviderTest(@"using System.Collections.Generic;
+
+		class C
+		{
+			public static void Main (string[] args)
+			{
+				List<string> list;
+				$list.Find(l => l.Name == l.Name ? l$
+			}
+		}", provider => {
+				Assert.IsNotNull(provider.Find("l"));
+			});
+		}
+
+		[Test]
+		public void TestLexerBug ()
+		{
+			CompletionDataList provider = CreateProvider (
+				@"
+public class TestMe : System.Object
+{
+/*
+
+	//*/
+	$override $
+}");
+			Assert.IsNotNull (provider, "provider not found.");
+			Assert.IsNotNull (provider.Find ("Equals"), "method 'Equals' not found.");
+		}
+
+		/// <summary>
+		/// Bug 13366 - Task result cannot be resolved in incomplete task continution
+		/// </summary>
+		[Test]
+		public void TestBug13366 ()
+		{
+			var provider = CreateProvider (
+				@"using System;
+using System.Threading.Tasks;
+
+public class TestMe
+{
+	
+	void Test ()
+	{
+		$Task.Factory.StartNew (() => 5).ContinueWith (t => t.$
+	}
+}");
+			Assert.IsNotNull (provider, "provider not found.");
+			Assert.IsNotNull (provider.Find ("Result"), "property 'Result' not found.");
+		}
+
+		[Ignore("Fixme")]
+		[Test]
+		public void TestBug13366Case2 ()
+		{
+			var provider = CreateProvider (
+				@"using System;
+
+class A { public void AMethod () {} }
+class B { public void BMethod () {} }
+
+public class TestMe
+{
+	void Foo(Action<A> act) {}
+	void Foo(Action<B> act) {}
+	
+	void Test ()
+	{
+		$Foo(a => a.$
+	}
+}");
+			Assert.IsNotNull (provider, "provider not found.");
+			Assert.IsNotNull (provider.Find ("AMethod"), "method 'AMethod' not found.");
+			Assert.IsNotNull (provider.Find ("BMethod"), "method 'BMethod' not found.");
+		}
+
+		/// <summary>
+		/// Bug 13746 - Not useful completion for async delegates 
+		/// </summary>
+		[Test]
+		public void TestBug13746 ()
+		{
+			var provider = CreateProvider (
+				@"using System;
+using System.Threading.Tasks;
+
+class Test
+{
+    public static void Main()
+    {
+        var c = new HttpClient ();
+        $Task.Run (a$
+        return;
+    }
+}
+");
+			Assert.IsNotNull (provider, "provider not found.");
+			foreach (var p in provider.Data)
+				Console.WriteLine(p.DisplayText);
+			Assert.AreEqual(1, provider.Data.Count(cd => cd.DisplayText == "async delegate"));
+			Assert.AreEqual(1, provider.Data.Count(cd => cd.DisplayText == "delegate()"));
+			Assert.AreEqual(1, provider.Data.Count(cd => cd.DisplayText == "async delegate()"));
+		}
+		[Ignore]
+		[Test]
+		public void TestBasicIntersectionProblem ()
+		{
+			CombinedProviderTest(@"using System;
+
+class A { public int AInt { get { return 1; } } }
+class B { public int BInt { get { return 0; } } }
+
+class Testm
+{
+	public void Foo (Action<A> a) {}
+	public void Foo (Action<B> b) {}
+
+	public void Bar ()
+	{
+		$Foo(x => x.$
+	}
+}", provider => {
+				Assert.IsNotNull (provider.Find ("AInt"), "property 'AInt' not found.");
+				Assert.IsNotNull (provider.Find ("BInt"), "property 'BInt' not found.");
+			});
+		}
+
+		[Ignore]
+		[Test]
+		public void TestComplexIntersectionTypeProblem ()
+		{
+			CombinedProviderTest(@"using System.Threading.Tasks;
+using System.Linq;
+
+class Foo
+{
+	public void Bar ()
+	{
+		$Task.Factory.ContinueWhenAll (new[] { Task.Factory.StartNew (() => 5) }, t => t.Select (r => r.$
+	}
+}", provider => {
+				Assert.IsNotNull (provider.Find ("Result"), "property 'Result' not found.");
+			});
+		}
+
+		/// <summary>
+		/// Bug 8795 - Completion shows namespace entry which in not usable
+		/// </summary>
+		[Test]
+		public void TestBug8795 ()
+		{
+			CombinedProviderTest(@"namespace A.B
+{
+    public class Foo
+    {
+    }
+}
+namespace Foo
+{
+    using A.B;
+
+    class MainClass
+    {
+        public static void Main ()
+        {
+            $F$
+        }
+    }
+}
+", provider => {
+				provider.Data.Single(d => d.DisplayText == "Foo");
+			});
+		}
 	}
 }

@@ -80,7 +80,7 @@ namespace ICSharpCode.NRefactory.CSharp.FormattingTests
 		}
 
 
-
+		
 		[Test]
 		public void TestArrayInitializer ()
 		{
@@ -108,6 +108,23 @@ class Test
 		};
 	}
 }");
+		}
+
+		[Test]
+		public void TestNoUneccessaryChangesToImplicitArrayInitializer ()
+		{
+			var policy = FormattingOptionsFactory.CreateMono();
+			const string input = @"using System.Collections.Generic;
+
+class Test
+{
+	void Init ()
+	{
+		var list = { 1, 2 };
+	}
+}";
+
+			TestNoUnnecessaryChanges(policy, input);
 		}
 
 
@@ -152,6 +169,56 @@ class Test
 	void Init ()
 	{
 		System.Console.WriteLine ();
+	}
+}");
+		}
+
+		
+
+		[Test]
+		public void TestAnonymousMethodBlocks ()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+
+			policy.AnonymousMethodBraceStyle = BraceStyle.NextLine;
+
+			Test (policy, @"class Test
+{
+	Test TestMethod ()
+	{
+		Action act = delegate{};
+	}
+}", @"class Test
+{
+	Test TestMethod ()
+	{
+		Action act = delegate
+		{
+		};
+	}
+}");
+		}
+
+		[Test]
+		public void TestLambdaBraceStyle ()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+
+			policy.AnonymousMethodBraceStyle = BraceStyle.NextLine;
+
+			Test (policy, @"class Test
+{
+	Test TestMethod ()
+	{
+		Action act = () => {};
+	}
+}", @"class Test
+{
+	Test TestMethod ()
+	{
+		Action act = () =>
+		{
+		};
 	}
 }");
 		}

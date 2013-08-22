@@ -47,19 +47,16 @@ namespace ICSharpCode.NRefactory.CSharp
 			base.VisitComposedType(composedType);
 		}
 
-		public override void VisitAnonymousMethodExpression(AnonymousMethodExpression anonymousMethodExpression)
+		public override void VisitAnonymousMethodExpression(AnonymousMethodExpression lambdaExpression)
 		{
-			if (!anonymousMethodExpression.Body.IsNull) {
-				if (anonymousMethodExpression.Body.LBraceToken.GetNextNode(NoWhitespacePredicate) != anonymousMethodExpression.Body.RBraceToken) {
-					FixOpenBrace(policy.AnonymousMethodBraceStyle, anonymousMethodExpression.Body.LBraceToken);
-					VisitBlockWithoutFixingBraces(anonymousMethodExpression.Body, policy.IndentBlocks);
-					FixClosingBrace(policy.AnonymousMethodBraceStyle, anonymousMethodExpression.Body.RBraceToken);
-				} else {
-					VisitBlockWithoutFixingBraces(anonymousMethodExpression.Body, policy.IndentBlocks);
-				}
-				return;
+			FormatArguments(lambdaExpression);
+
+			if (!lambdaExpression.Body.IsNull) {
+				FixOpenBrace(policy.AnonymousMethodBraceStyle, lambdaExpression.Body.LBraceToken);
+				VisitBlockWithoutFixingBraces(lambdaExpression.Body, policy.IndentBlocks);
+				FixClosingBrace(policy.AnonymousMethodBraceStyle, lambdaExpression.Body.RBraceToken);
 			}
-			base.VisitAnonymousMethodExpression(anonymousMethodExpression);
+
 		}
 
 		public override void VisitAssignmentExpression(AssignmentExpression assignmentExpression)
@@ -262,6 +259,46 @@ namespace ICSharpCode.NRefactory.CSharp
 				rParToken = oce.RParToken;
 				lParToken = oce.LParToken;
 				arguments = oce.Arguments.Cast<AstNode> ().ToList ();
+			} else if (node is Attribute) {
+				var oce = node as Attribute;
+				methodCallArgumentWrapping = policy.MethodCallArgumentWrapping;
+				newLineAferMethodCallOpenParentheses = policy.NewLineAferMethodCallOpenParentheses;
+				doAlignToFirstArgument = policy.AlignToFirstMethodCallArgument;
+				methodClosingParenthesesOnNewLine = policy.MethodCallClosingParenthesesOnNewLine;
+				spaceWithinMethodCallParentheses = policy.SpacesWithinNewParentheses;
+				spaceAfterMethodCallParameterComma = policy.SpaceAfterNewParameterComma;
+				spaceBeforeMethodCallParameterComma = policy.SpaceBeforeNewParameterComma;
+				spaceWithinEmptyParentheses = policy.SpacesBetweenEmptyNewParentheses;
+
+				rParToken = oce.RParToken;
+				lParToken = oce.LParToken;
+				arguments = oce.Arguments.Cast<AstNode> ().ToList ();
+			} else if (node is LambdaExpression)  {
+				var methodDeclaration = node as LambdaExpression;
+				methodCallArgumentWrapping = policy.MethodDeclarationParameterWrapping;
+				newLineAferMethodCallOpenParentheses = policy.NewLineAferMethodDeclarationOpenParentheses;
+				methodClosingParenthesesOnNewLine = policy.MethodDeclarationClosingParenthesesOnNewLine;
+				doAlignToFirstArgument = policy.AlignToFirstMethodDeclarationParameter;
+				spaceWithinMethodCallParentheses = policy.SpaceWithinMethodDeclarationParentheses;
+				spaceAfterMethodCallParameterComma = policy.SpaceAfterMethodDeclarationParameterComma;
+				spaceBeforeMethodCallParameterComma = policy.SpaceBeforeMethodDeclarationParameterComma;
+				spaceWithinEmptyParentheses = policy.SpaceBetweenEmptyMethodDeclarationParentheses;
+				lParToken = methodDeclaration.LParToken;
+				rParToken = methodDeclaration.RParToken;
+				arguments = methodDeclaration.Parameters.Cast<AstNode> ().ToList ();
+			} else if (node is AnonymousMethodExpression)  {
+				var methodDeclaration = node as AnonymousMethodExpression;
+				methodCallArgumentWrapping = policy.MethodDeclarationParameterWrapping;
+				newLineAferMethodCallOpenParentheses = policy.NewLineAferMethodDeclarationOpenParentheses;
+				methodClosingParenthesesOnNewLine = policy.MethodDeclarationClosingParenthesesOnNewLine;
+				doAlignToFirstArgument = policy.AlignToFirstMethodDeclarationParameter;
+				spaceWithinMethodCallParentheses = policy.SpaceWithinMethodDeclarationParentheses;
+				spaceAfterMethodCallParameterComma = policy.SpaceAfterMethodDeclarationParameterComma;
+				spaceBeforeMethodCallParameterComma = policy.SpaceBeforeMethodDeclarationParameterComma;
+				spaceWithinEmptyParentheses = policy.SpaceBetweenEmptyMethodDeclarationParentheses;
+				lParToken = methodDeclaration.LParToken;
+				rParToken = methodDeclaration.RParToken;
+				arguments = methodDeclaration.Parameters.Cast<AstNode> ().ToList ();
 			} else {
 				InvocationExpression invocationExpression = node as InvocationExpression;
 				methodCallArgumentWrapping = policy.MethodCallArgumentWrapping;
@@ -344,7 +381,7 @@ namespace ICSharpCode.NRefactory.CSharp
 								if (arg.PrevSibling.StartLocation.Line == arg.StartLocation.Line) {
 									ForceSpacesBefore(arg, spaceAfterMethodCallParameterComma && arg.GetPrevSibling(NoWhitespacePredicate).Role == Roles.Comma);
 								} else {
-									int extraSpaces = arguments.First().StartLocation.Column - 1 - curIndent.IndentString.Length;
+									int extraSpaces = Math.Max (0, arguments.First().StartLocation.Column - 1 - curIndent.IndentString.Length);
 									curIndent.ExtraSpaces += extraSpaces;
 									FixStatementIndentation(arg.StartLocation);
 									curIndent.ExtraSpaces -= extraSpaces;
@@ -376,6 +413,9 @@ namespace ICSharpCode.NRefactory.CSharp
 
 		public override void VisitInvocationExpression(InvocationExpression invocationExpression)
 		{
+			if (!invocationExpression.Target.IsNull)
+				invocationExpression.Target.AcceptVisitor(this);
+
 			ForceSpacesBefore(invocationExpression.LParToken, policy.SpaceBeforeMethodCallParentheses);
 			if (invocationExpression.Arguments.Any()) {
 				ForceSpacesAfter(invocationExpression.LParToken, policy.SpaceWithinMethodCallParentheses);
@@ -383,9 +423,6 @@ namespace ICSharpCode.NRefactory.CSharp
 				ForceSpacesAfter(invocationExpression.LParToken, policy.SpaceBetweenEmptyMethodCallParentheses);
 				ForceSpacesBefore(invocationExpression.RParToken, policy.SpaceBetweenEmptyMethodCallParentheses);
 			}
-
-			if (!invocationExpression.Target.IsNull)
-				invocationExpression.Target.AcceptVisitor(this);
 
 			if (invocationExpression.Target is MemberReferenceExpression) {
 				var mt = (MemberReferenceExpression)invocationExpression.Target;
@@ -523,11 +560,14 @@ namespace ICSharpCode.NRefactory.CSharp
 						continue;
 					}
 					if (child.Role == Roles.Expression) {
-						if (child.PrevSibling.Role == Roles.NewLine)
-							FixIndentation(child);
-						if (child.PrevSibling.Role == Roles.Comma)
-							ForceSpaceBefore(child, true);
-						if (child.NextSibling.Role == Roles.Comma)
+						if (child.PrevSibling != null) {
+							if (child.PrevSibling.Role == Roles.NewLine)
+								FixIndentation(child);
+							if (child.PrevSibling.Role == Roles.Comma)
+								ForceSpaceBefore(child, true);
+						}
+						child.AcceptVisitor(this);
+						if (child.NextSibling != null && child.NextSibling.Role == Roles.Comma)
 							ForceSpacesAfter(child, false);
 						continue;
 					}
@@ -536,18 +576,42 @@ namespace ICSharpCode.NRefactory.CSharp
 				}
 			}
 		}
+		public override void VisitParameterDeclaration(ParameterDeclaration parameterDeclaration)
+		{
+			var assignToken = parameterDeclaration.AssignToken;
+			if (!assignToken.IsNull)
+				ForceSpacesAround(assignToken, policy.SpaceAroundAssignment);
+			base.VisitParameterDeclaration(parameterDeclaration);
+		}
 
 		public override void VisitLambdaExpression(LambdaExpression lambdaExpression)
 		{
-			ForceSpacesAfter(lambdaExpression.ArrowToken, true);
+			FormatArguments(lambdaExpression);
 			ForceSpacesBefore(lambdaExpression.ArrowToken, true);
 
-			base.VisitLambdaExpression(lambdaExpression);
+			if (!lambdaExpression.Body.IsNull) {
+				var body = lambdaExpression.Body as BlockStatement;
+				if (body != null) {
+					FixOpenBrace(policy.AnonymousMethodBraceStyle, body.LBraceToken);
+					VisitBlockWithoutFixingBraces(body, policy.IndentMethodBody);
+					FixClosingBrace(policy.AnonymousMethodBraceStyle, body.RBraceToken);
+				} else {
+					ForceSpacesAfter(lambdaExpression.ArrowToken, true);
+					lambdaExpression.Body.AcceptVisitor(this);
+				}
+			}
+		}
+
+		public override void VisitNamedExpression(NamedExpression namedExpression)
+		{
+			ForceSpacesAround(namedExpression.AssignToken, policy.SpaceAroundAssignment);
+			base.VisitNamedExpression(namedExpression);
 		}
 
 		public override void VisitNamedArgumentExpression(NamedArgumentExpression namedArgumentExpression)
 		{
 			ForceSpacesAfter(namedArgumentExpression.ColonToken, policy.SpaceInNamedArgumentAfterDoubleColon);
+
 			base.VisitNamedArgumentExpression(namedArgumentExpression);
 		}
 
@@ -558,6 +622,47 @@ namespace ICSharpCode.NRefactory.CSharp
 				ForceSpacesBefore(dot, false);
 			ForceSpacesAfter(dot, false);
 			base.VisitMemberReferenceExpression(memberReferenceExpression);
+		}
+
+		public override void VisitPointerReferenceExpression(PointerReferenceExpression pointerReferenceExpression)
+		{
+			ForceSpacesAround(pointerReferenceExpression.ArrowToken, policy.SpaceAroundUnsafeArrowOperator);
+			base.VisitPointerReferenceExpression(pointerReferenceExpression);
+		}
+
+		public override void VisitUnaryOperatorExpression(UnaryOperatorExpression unaryOperatorExpression)
+		{
+			base.VisitUnaryOperatorExpression(unaryOperatorExpression);
+			switch (unaryOperatorExpression.Operator) {
+				case UnaryOperatorType.Any:
+					break;
+				case UnaryOperatorType.Not:
+					break;
+				case UnaryOperatorType.BitNot:
+					break;
+				case UnaryOperatorType.Minus:
+					break;
+				case UnaryOperatorType.Plus:
+					break;
+				case UnaryOperatorType.Increment:
+					break;
+				case UnaryOperatorType.Decrement:
+					break;
+				case UnaryOperatorType.PostIncrement:
+					break;
+				case UnaryOperatorType.PostDecrement:
+					break;
+				case UnaryOperatorType.Dereference:
+					ForceSpacesAfter(unaryOperatorExpression.OperatorToken, policy.SpaceAfterUnsafeAsteriskOfOperator);
+					break;
+				case UnaryOperatorType.AddressOf:
+					ForceSpacesAfter(unaryOperatorExpression.OperatorToken, policy.SpaceAfterUnsafeAddressOfOperator);
+					break;
+				case UnaryOperatorType.Await:
+					break;
+				default:
+					throw new ArgumentOutOfRangeException();
+			}
 		}
 	}
 }

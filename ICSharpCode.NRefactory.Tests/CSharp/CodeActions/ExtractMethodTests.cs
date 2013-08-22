@@ -549,6 +549,66 @@ class TestClass
 	}
 }");
 		}
+
+		/// <summary>
+		/// Bug 13054 - Extract method creates params on new method for params declared on lambdas in method body
+		/// </summary>
+		[Test]
+		public void TestBug13054 ()
+		{
+			Test<ExtractMethodAction> (@"class TestClass
+{
+	public static void TestMethod ()
+	{
+		<-int i = 0;
+		Action<string> action = (str) =>  {
+			Console.WriteLine (str);
+		};->
+	}
+}", @"class TestClass
+{
+	static void NewMethod ()
+	{
+		int i = 0;
+		Action<string> action = str =>  {
+			Console.WriteLine (str);
+		};
+	}
+	public static void TestMethod ()
+	{
+		NewMethod ();
+	}
+}");
+		}
+
+		/// <summary>
+		/// Bug 13539 - Extracting method where last line is comment leaves comment outside new method
+		/// </summary>
+		[Test]
+		public void TestBug13539 ()
+		{
+			Test<ExtractMethodAction> (@"class TestClass
+{
+	public static void TestMethod ()
+	{
+		<-
+			Foo ();
+			// Comment
+->
+	}
+}", @"class TestClass
+{
+	static void NewMethod ()
+	{
+		Foo ();
+		// Comment
+	}
+	public static void TestMethod ()
+	{
+		NewMethod ();
+	}
+}");
+		}
 	}
 }
 

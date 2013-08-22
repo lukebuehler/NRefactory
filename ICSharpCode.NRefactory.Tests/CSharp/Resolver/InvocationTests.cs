@@ -798,5 +798,39 @@ public class B<T> {
 			Assert.IsFalse(rr.IsError);
 			Assert.AreEqual("System.Int32", rr.Member.ReturnType.FullName);
 		}
+
+		[Test]
+		public void GenericInvocationWithTypeArgumentAsICollection() {
+			string program = @"
+using System;
+using System.Collections.Generic;
+
+static class C1 {
+	public static void G<TC, TI>(TC items) where TC : ICollection<TI> {}
+
+	public static void M<TI>(TI[] items) {
+		$G<TI[], TI>(items)$;
+	}
+}";
+			var rr = Resolve<CSharpInvocationResolveResult>(program);
+			Assert.IsFalse(rr.IsError);
+		}
+		
+		[Test]
+		public void ConstraintBetweenTwoInferredTypeArguments() {
+			string program = @"using System;
+using System.Collections.Generic;
+class Program
+{
+	static T[] ToArray<T, V>(List<V> list, T[] empty) where V : T {}
+	
+	public static void Test(List<Type> interfaces, Type[] emptyTypes)
+	{
+		return $ToArray(interfaces, emptyTypes)$;
+	}
+}";
+			var rr = Resolve<CSharpInvocationResolveResult>(program);
+			Assert.IsFalse(rr.IsError);
+		}
 	}
 }

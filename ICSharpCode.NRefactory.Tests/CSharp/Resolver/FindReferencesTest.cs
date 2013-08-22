@@ -24,6 +24,9 @@ using System.Threading;
 using ICSharpCode.NRefactory.CSharp.TypeSystem;
 using ICSharpCode.NRefactory.TypeSystem;
 using NUnit.Framework;
+using ICSharpCode.NRefactory.Analysis;
+using System.Text;
+using ICSharpCode.NRefactory.Editor;
 
 namespace ICSharpCode.NRefactory.CSharp.Resolver
 {
@@ -161,6 +164,43 @@ class Test {
 			Assert.AreEqual(2, actual.Count);
 			Assert.IsTrue(actual.Any(r => r.StartLocation.Line == 4 && r is ObjectCreateExpression));
 			Assert.IsTrue(actual.Any(r => r.StartLocation.Line == 6 && r is OperatorDeclaration));
+		}
+		
+		[Test]
+		public void FindReferencesForOpImplicitInLocalVariableInitialization_ExplicitCast()
+		{
+			Init(@"using System;
+class Test {
+ static void T() {
+  int x = (int)new Test();
+ }
+ public static implicit operator int(Test x) { return 0; }
+}");
+			var test = compilation.MainAssembly.TopLevelTypeDefinitions.Single(t => t.Name == "Test");
+			var opImplicit = test.Methods.Single(m => m.Name == "op_Implicit");
+			var actual = FindReferences(opImplicit).ToList();
+			Assert.AreEqual(2, actual.Count);
+			Assert.IsTrue(actual.Any(r => r.StartLocation.Line == 4 && r is ObjectCreateExpression));
+			Assert.IsTrue(actual.Any(r => r.StartLocation.Line == 6 && r is OperatorDeclaration));
+		}
+		
+		[Test]
+		public void FindReferencesForOpImplicitInAssignment_ExplicitCast()
+		{
+			Init(@"using System;
+class Test {
+ static void T() {
+  int x;
+  x = (int)new Test();
+ }
+ public static implicit operator int(Test x) { return 0; }
+}");
+			var test = compilation.MainAssembly.TopLevelTypeDefinitions.Single(t => t.Name == "Test");
+			var opImplicit = test.Methods.Single(m => m.Name == "op_Implicit");
+			var actual = FindReferences(opImplicit).ToList();
+			Assert.AreEqual(2, actual.Count);
+			Assert.IsTrue(actual.Any(r => r.StartLocation.Line == 5 && r is ObjectCreateExpression));
+			Assert.IsTrue(actual.Any(r => r.StartLocation.Line == 7 && r is OperatorDeclaration));
 		}
 		#endregion
 		
@@ -309,7 +349,7 @@ public class C {
 		#endif // NET_4_5
 
 		#endregion
-	
+		
 		#region Namespaces
 		[Test]
 		public void FindNamespaceTest()
@@ -325,9 +365,9 @@ namespace Other.Bar {
 	class OtherTest {}
 }
 
-namespace Foo 
+namespace Foo
 {
-	class Test 
+	class Test
 	{
 		static void T()
 		{
@@ -366,9 +406,9 @@ namespace Foo.Bar {
 	class MyTest { }
 }
 
-namespace Foo 
+namespace Foo
 {
-	class Test 
+	class Test
 	{
 		Foo.Bar.MyTest t;
 	}
@@ -382,6 +422,103 @@ namespace Foo
 			Assert.IsTrue(actual.Any(r => r.StartLocation.Line == 8 && r is NamespaceDeclaration));
 			Assert.IsTrue(actual.Any(r => r.StartLocation.Line == 12 && r is SimpleType));
 		}
+		#endregion
+		
+		#region Rename
+
+		internal static ISymbol GetSymbol (ICompilation compilation, string reflectionName)
+		{
+			Stack<ITypeDefinition> typeStack = new Stack<ITypeDefinition>(compilation.MainAssembly.TopLevelTypeDefinitions);
+			while (typeStack.Count > 0) {
+				var cur = typeStack.Pop();
+				if (cur.ReflectionName == reflectionName)
+					return cur;
+				foreach (var member in cur.Members)
+					if (member.ReflectionName == reflectionName)
+						return member;
+				foreach (var nested in cur.NestedTypes) {
+					typeStack.Push(nested);
+				}
+			}
+			return null;
+		}
+
+		IList<AstNode> Rename(string fullyQualifiedName, string newName, bool includeOverloads)
+		{
+			var sym = GetSymbol(compilation, fullyQualifiedName);
+			Assert.NotNull(sym);
+			var graph = new TypeGraph(compilation.Assemblies);
+			var col = new SymbolCollector();
+			col.IncludeOverloads = includeOverloads;
+			col.GroupForRenaming = true;
+			var scopes = findReferences.GetSearchScopes(col.GetRelatedSymbols(graph, sym));
+			List<AstNode> result = new List<AstNode>();
+
+			findReferences.RenameReferencesInFile(
+				scopes,
+				newName,
+				new CSharpAstResolver(compilation, syntaxTree, unresolvedFile),
+				delegate(RenameCallbackArguments obj) {
+					result.Add (obj.NodeToReplace);
+				},
+				delegate(Error obj) {
+					
+				});
+			return result;
+		}
+
+		void TestRename(string code, string symbolName)
+		{
+			StringBuilder sb = new StringBuilder();
+			List<int> offsets = new List<int>();
+			foreach (var ch in code) {
+				if (ch == '$') {
+					offsets.Add(sb.Length);
+					continue;
+				}
+				sb.Append(ch);
+			}
+			Init(sb.ToString ());
+			findReferences.WholeVirtualSlot = true;
+			var doc = new ReadOnlyDocument(sb.ToString ());
+			var result = Rename(symbolName, "x", false);
+			Assert.AreEqual(offsets.Count, result.Count);
+
+			result.Select(r => doc.GetOffset (r.StartLocation)).SequenceEqual(offsets);
+		}
+
+		[Test]
+		public void TestSimpleRename ()
+		{
+			TestRename (@"using System;
+class $Test {
+	$Test test;
+}", "Test");
+		}
+
+
+		[Test]
+		public void TestOverride ()
+		{
+			TestRename(@"using System;
+class Test {
+	public virtual int $Foo { get; set; }
+}
+
+class Test2 : Test {
+	public override int $Foo { get; set; }
+}
+
+class Test3 : Test {
+	public override int $Foo { get; set; }
+	public FindReferencesTest ()
+	{
+		$Foo = 4;
+	}
+}
+", "Test.Foo");
+		}
+
 		#endregion
 	}
 }

@@ -130,7 +130,7 @@ class A { public A() : ba$se() {} }");
 			var rr = ResolveAtLocation<CSharpInvocationResolveResult>(
 				"using System.Collections.Generic;" +
 				"public class A { int M(List<int> a) { return a$[1]; } }");
-			Assert.AreEqual(EntityType.Indexer, rr.Member.EntityType);
+			Assert.AreEqual(SymbolKind.Indexer, rr.Member.SymbolKind);
 		}
 
 		[Test]
@@ -249,6 +249,26 @@ class Test {
 }
 ");
 			Assert.AreEqual("System.Environment", rr.Type.FullName);
+		}
+
+		[Test]
+		public void TestIndexer()
+		{
+			var rr = ResolveAtLocation<MemberResolveResult>(
+				@"using System;
+class Test {
+	public int $this[int index] { get { return 1; } }
+}
+");
+			Assert.AreEqual("Test.Item", rr.Member.FullName);
+		}
+
+
+		
+		[Test]
+		public void PragmaWarningID()
+		{
+			ResolveAtLocation(@"#pragma warning disable 1$0");
 		}
 	}
 }

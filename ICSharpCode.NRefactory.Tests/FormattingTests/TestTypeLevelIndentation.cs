@@ -23,7 +23,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
 using System.IO;
 using NUnit.Framework;
@@ -42,7 +41,6 @@ namespace ICSharpCode.NRefactory.CSharp.FormattingTests
 			Test(policy, @"		using Foo;", @"using Foo;");
 		}
 
-		
 		[Test]
 		public void TestUsingDeclarationsWithHeader()
 		{
@@ -63,70 +61,139 @@ using Foo;");
 		}
 
 		[Test]
-		public void TestClassIndentation ()
+		public void TestPreProcessorIndenting()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
-			
-			Test (policy,
-@"			class Test {}",
-@"class Test {}");
+
+			Test(policy,
+			      @"
+class Test {
+
+    #region FooBar
+
+    #endregion
+
+}",
+			      @"
+class Test {
+
+	#region FooBar
+
+	#endregion
+
+}");
 		}
-		
+
 		[Test]
-		public void TestAttributeIndentation ()
+		public void TestTypeWithAttributeIndenging()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.ClassBraceStyle = BraceStyle.DoNotChange;
+
+			Test(policy,
+			     @"
+	[Attr]
+	class Test {
+}",
+			     @"
+[Attr]
+class Test {
+}");
+		}
+
+		[Test]
+		public void TestClassIndentation()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.ClassBraceStyle = BraceStyle.DoNotChange;
+
+			Test(policy,
+			     @"			class Test {
+}",
+			     @"class Test {
+}");
+		}
+
+		[Test]
+		public void TestClassIndentationWithDocComment()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.ClassBraceStyle = BraceStyle.DoNotChange;
+
+			Test(policy,
+			     @"/// <summary>
+		/// olwcowcolwc
+		/// </summary>
+			class Test {
+}",
+			     @"/// <summary>
+/// olwcowcolwc
+/// </summary>
+class Test {
+}");
+		}
+
+		[Test]
+		public void TestAttributeIndentation()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
 			
-			Test (policy,
-@"					[Attribute1]
+			Test(policy,
+			      @"					[Attribute1]
 		[Attribute2()]
-          class Test {}",
-@"[Attribute1]
-[Attribute2()]
-class Test {}");
+          class Test {
+}",
+			      @"[Attribute1]
+[Attribute2 ()]
+class Test {
+}");
 		}
-		
+
 		[Test]
-		public void TestClassIndentationInNamespaces ()
+		public void TestClassIndentationInNamespaces()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.NamespaceBraceStyle = BraceStyle.EndOfLine;
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
 			
-			Test (policy,
-@"namespace A { class Test {} }",
-@"namespace A {
-	class Test {}
+			Test(policy,
+			      @"namespace A { class Test {
+} }",
+			      @"namespace A {
+	class Test {
+}
 }");
 		}
-		
+
 		[Test]
-		public void TestNoIndentationInNamespaces ()
+		public void TestNoIndentationInNamespaces()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.NamespaceBraceStyle = BraceStyle.EndOfLine;
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
 			policy.IndentNamespaceBody = false;
 			
-			Test (policy,
-@"namespace A { class Test {} }",
-@"namespace A {
-class Test {}
+			Test(policy,
+			      @"namespace A { class Test {
+} }",
+			      @"namespace A {
+class Test {
+}
 }");
 		}
-		
+
 		[Test]
-		public void TestClassIndentationInNamespacesCase2 ()
+		public void TestClassIndentationInNamespacesCase2()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.NamespaceBraceStyle = BraceStyle.NextLine;
 			policy.ClassBraceStyle = BraceStyle.NextLine;
 			policy.ConstructorBraceStyle = BraceStyle.NextLine;
 			
-			Test (policy,
-@"using System;
+			Test(policy,
+			      @"using System;
 
 namespace MonoDevelop.CSharp.Formatting {
 	public class FormattingProfileService {
@@ -134,7 +201,7 @@ namespace MonoDevelop.CSharp.Formatting {
 		}
 	}
 }",
-@"using System;
+			      @"using System;
 
 namespace MonoDevelop.CSharp.Formatting
 {
@@ -146,14 +213,14 @@ namespace MonoDevelop.CSharp.Formatting
 	}
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentClassBody ()
+		public void TestIndentClassBody()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentClassBody = true;
-			Test (policy,
-@"class Test
+			Test(policy,
+			      @"class Test
 {
 				Test a;
 }", @"class Test
@@ -162,25 +229,45 @@ namespace MonoDevelop.CSharp.Formatting
 }");
 			
 			policy.IndentClassBody = false;
-			Test (policy,
-@"class Test
+			Test(policy,
+			      @"class Test
 {
 	Test a;
 }",
-@"class Test
+			      @"class Test
 {
 Test a;
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentInterfaceBody ()
+		public void TestDocCommentIndenting()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			Test(policy,
+			     @"class Test
+{
+		/// <summary>
+   /// Test
+              /// </summary>
+	Test a;
+}", @"class Test
+{
+	/// <summary>
+	/// Test
+	/// </summary>
+	Test a;
+}");
+		}
+
+		[Test]
+		public void TestIndentInterfaceBody()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentInterfaceBody = true;
 			
-			Test (policy,
-@"interface Test
+			Test(policy,
+			      @"interface Test
 {
 				Test Foo ();
 }", @"interface Test
@@ -188,8 +275,8 @@ Test a;
 	Test Foo ();
 }");
 			policy.IndentInterfaceBody = false;
-			Test (policy,
-@"interface Test
+			Test(policy,
+			      @"interface Test
 {
 	Test Foo ();
 }", @"interface Test
@@ -197,15 +284,15 @@ Test a;
 Test Foo ();
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentStructBody ()
+		public void TestIndentStructBody()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentStructBody = true;
 			
-			Test (policy,
-@"struct Test
+			Test(policy,
+			      @"struct Test
 {
 				Test Foo ();
 }", @"struct Test
@@ -213,8 +300,8 @@ Test Foo ();
 	Test Foo ();
 }");
 			policy.IndentStructBody = false;
-			Test (policy,
-@"struct Test
+			Test(policy,
+			      @"struct Test
 {
 	Test Foo ();
 }", @"struct Test
@@ -222,15 +309,15 @@ Test Foo ();
 Test Foo ();
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentEnumBody ()
+		public void TestIndentEnumBody()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentEnumBody = true;
 			
-			Test (policy,
-@"enum Test
+			Test(policy,
+			      @"enum Test
 {
 				A
 }", @"enum Test
@@ -238,8 +325,8 @@ Test Foo ();
 	A
 }");
 			policy.IndentEnumBody = false;
-			Test (policy,
-@"enum Test
+			Test(policy,
+			      @"enum Test
 {
 	A
 }", @"enum Test
@@ -247,15 +334,55 @@ Test Foo ();
 A
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentMethodBody ()
+		public void TestIndentEnumBodyCase2()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.IndentEnumBody = true;
+
+			Test(policy,
+			     @"enum Test
+{
+				A , 
+	B, 
+C
+}", @"enum Test
+{
+	A,
+	B,
+	C
+}");
+		}
+
+		[Test]
+		public void TestIndentEnumBodyCase3()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.IndentEnumBody = true;
+
+			Test(policy,
+			     @"enum Test
+{
+				A = 3  + 5, 
+	B=5  , 
+C=5 <<       12
+}", @"enum Test
+{
+	A = 3 + 5,
+	B = 5,
+	C = 5 << 12
+}");
+		}
+
+		[Test]
+		public void TestIndentMethodBody()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentMethodBody = true;
 			
-			Test (policy,
-@"class Test
+			Test(policy,
+			      @"class Test
 {
 	Test Foo ()
 	{
@@ -263,7 +390,7 @@ A
 								;
 	}
 }",
-@"class Test
+			      @"class Test
 {
 	Test Foo ()
 	{
@@ -272,8 +399,8 @@ A
 	}
 }");
 			policy.IndentMethodBody = false;
-			Test (policy,
-@"class Test
+			Test(policy,
+			      @"class Test
 {
 	Test Foo ()
 	{
@@ -281,7 +408,7 @@ A
 		;
 	}
 }",
-@"class Test
+			      @"class Test
 {
 	Test Foo ()
 	{
@@ -290,15 +417,15 @@ A
 	}
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentMethodBodyOperatorCase ()
+		public void TestIndentMethodBodyOperatorCase()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentMethodBody = true;
 
-			var adapter = Test (policy,
-@"class Test
+			var adapter = Test(policy,
+			                    @"class Test
 {
 	static Test operator+(Test left, Test right)
 	{
@@ -306,7 +433,7 @@ A
 								;
 	}
 }",
-@"class Test
+			                    @"class Test
 {
 	static Test operator+ (Test left, Test right)
 	{
@@ -315,7 +442,7 @@ A
 	}
 }");
 			policy.IndentMethodBody = false;
-			Continue (policy, adapter, @"class Test
+			Continue(policy, adapter, @"class Test
 {
 	static Test operator+ (Test left, Test right)
 	{
@@ -324,22 +451,22 @@ A
 	}
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentPropertyBody ()
+		public void TestIndentPropertyBody()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentPropertyBody = true;
 			
-			var adapter = Test (policy,
-@"class Test
+			var adapter = Test(policy,
+			                    @"class Test
 {
 	Test TestMe {
 			get;
 set;
 	}
 }",
-@"class Test
+			                    @"class Test
 {
 	Test TestMe {
 		get;
@@ -348,8 +475,8 @@ set;
 }");
 			policy.IndentPropertyBody = false;
 			
-			Continue (policy, adapter,
-@"class Test
+			Continue(policy, adapter,
+			          @"class Test
 {
 	Test TestMe {
 	get;
@@ -357,53 +484,51 @@ set;
 	}
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentPropertyOneLine ()
+		public void TestIndentPropertyOneLine()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
-			policy.PropertyFormatting = PropertyFormatting.AllowOneLine;
-			policy.AllowPropertyGetBlockInline = true;
-			policy.AllowPropertySetBlockInline = true;
-			
-			Test (policy,
-@"class Test
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.SimplePropertyFormatting = PropertyFormatting.AllowOneLine;
+
+			Test(policy,
+			      @"class Test
 {
 	Test TestMe {      get;set;                  }
 }",
-@"class Test
+			      @"class Test
 {
 	Test TestMe { get; set; }
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentPropertyOneLineCase2 ()
+		public void TestIndentPropertyOneLineCase2()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
-			policy.PropertyFormatting = PropertyFormatting.AllowOneLine;
-			policy.AllowPropertyGetBlockInline = true;
-			policy.AllowPropertySetBlockInline = true;
-			
-			Test (policy,
-@"class Test
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.SimplePropertyFormatting = PropertyFormatting.AllowOneLine;
+			policy.SimpleGetBlockFormatting = PropertyFormatting.AllowOneLine;
+			policy.SimpleSetBlockFormatting = PropertyFormatting.AllowOneLine;
+
+			Test(policy,
+			      @"class Test
 {
 	Test TestMe {      get { ; }set{;}                  }
 }",
-@"class Test
+			      @"class Test
 {
 	Test TestMe { get { ; } set { ; } }
 }");
 		}
-		
+
 		[Test]
-		public void TestIndentPropertyBodyIndexerCase ()
+		public void TestIndentPropertyBodyIndexerCase()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentPropertyBody = true;
 			
-			var adapter = Test (policy,
-@"class Test
+			var adapter = Test(policy,
+			                    @"class Test
 {
 	Test this[int a] {
 			get {
@@ -414,7 +539,7 @@ set {
 }
 	}
 }",
-@"class Test
+			                    @"class Test
 {
 	Test this [int a] {
 		get {
@@ -426,8 +551,8 @@ set {
 	}
 }");
 			policy.IndentPropertyBody = false;
-			Continue (policy, adapter,
-@"class Test
+			Continue(policy, adapter,
+			          @"class Test
 {
 	Test this [int a] {
 	get {
@@ -439,110 +564,163 @@ set {
 	}
 }");
 		}
-		
+
 		[Test]
-		public void TestPropertyAlignment ()
+		public void TestAutoPropertyAlignment()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
-			policy.PropertyFormatting = PropertyFormatting.AllowOneLine;
-			var adapter = Test (policy,
-@"class Test
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.AutoPropertyFormatting = PropertyFormatting.AllowOneLine;
+			var adapter = Test(policy,
+			                    @"class Test
 {
 	Test TestMe { get; set; }
 }",
-@"class Test
+			                    @"class Test
 {
 	Test TestMe { get; set; }
 }");
-			policy.PropertyFormatting = PropertyFormatting.ForceNewLine;
-			Continue (policy, adapter,
-@"class Test
+			policy.AutoPropertyFormatting = PropertyFormatting.ForceNewLine;
+			Continue(policy, adapter,
+			          @"class Test
 {
 	Test TestMe {
 		get;
 		set;
 	}
 }");
-			policy.PropertyFormatting = PropertyFormatting.ForceOneLine;
+			policy.AutoPropertyFormatting = PropertyFormatting.ForceOneLine;
 			
-			Continue (policy, adapter,
-@"class Test
+			Continue(policy, adapter,
+			          @"class Test
 {
 	Test TestMe { get; set; }
 }");
 		}
 
-		
 		[Test]
-		public void TestIndentNamespaceBody ()
+		public void TestSimplePropertyAlignment()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.SimplePropertyFormatting = PropertyFormatting.AllowOneLine;
+			var adapter = Test(policy,
+			                   @"class Test
+{
+	Test TestMe { get { ; } set { ; } }
+}",
+			                   @"class Test
+{
+	Test TestMe { get { ; } set { ; } }
+}");
+			policy.SimplePropertyFormatting = PropertyFormatting.ForceNewLine;
+			Continue(policy, adapter,
+			         @"class Test
+{
+	Test TestMe {
+		get { ; }
+		set { ; }
+	}
+}");
+			policy.SimplePropertyFormatting = PropertyFormatting.ForceOneLine;
+
+			Continue(policy, adapter,
+			         @"class Test
+{
+	Test TestMe { get { ; } set { ; } }
+}");
+		}
+
+
+		[Test]
+		public void TestClashingPropertyAlignment()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.SimplePropertyFormatting = PropertyFormatting.ForceOneLine;
+			policy.SimpleGetBlockFormatting = PropertyFormatting.ForceNewLine;
+			Test(policy, @"class Test
+{
+	Test TestMe {
+		get { FooBar (); }
+	}
+}", @"class Test
+{
+	Test TestMe { get { FooBar (); } }
+}");
+		}
+
+
+
+		[Test]
+		public void TestIndentNamespaceBody()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
 			policy.NamespaceBraceStyle = BraceStyle.EndOfLine;
 			policy.IndentNamespaceBody = true;
-			var adapter = Test (policy,
-@"			namespace Test {
-class FooBar {}
+			var adapter = Test(policy,
+			                    @"			namespace Test {
+class FooBar {
+}
 		}",
-@"namespace Test {
-	class FooBar {}
+			                    @"namespace Test {
+	class FooBar {
+}
 }");
 			
 			policy.IndentNamespaceBody = false;
-			Continue (policy, adapter,
-@"namespace Test {
-class FooBar {}
+			Continue(policy, adapter,
+			          @"namespace Test {
+class FooBar {
+}
 }");
 		}
-		
-		
+
 		[Test]
-		public void TestMethodIndentation ()
+		public void TestMethodIndentation()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.MethodBraceStyle = BraceStyle.DoNotChange;
 			
-			Test (policy,
-@"class Test
+			Test(policy,
+			      @"class Test
 {
 MyType TestMethod () {}
 }",
-@"class Test
+			      @"class Test
 {
 	MyType TestMethod () {}
 }");
 		}
-		
+
 		[Test]
-		public void TestPropertyIndentation ()
+		public void TestPropertyIndentation()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.PropertyBraceStyle = BraceStyle.DoNotChange;
 			
-			Test (policy, 
-@"class Test
+			Test(policy, 
+			      @"class Test
 {
 				public int Prop { get; set; }
-}",@"class Test
+}", @"class Test
 {
 	public int Prop { get; set; }
 }");
 		}
-		
+
 		[Test]
-		public void TestPropertyIndentationCase2 ()
+		public void TestPropertyIndentationCase2()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			
-			Test (policy, 
-@"class Test
+			Test(policy, 
+			      @"class Test
 {
 				public int Prop {
  get;
 set;
 }
 }",
-@"class Test
+			      @"class Test
 {
 	public int Prop {
 		get;
@@ -552,31 +730,32 @@ set;
 		}
 
 		[Test]
-		public void TestPropertyIndentationClosingBracketCorrection ()
+		public void TestPropertyIndentationClosingBracketCorrection()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 
-			Test (policy, 
-@"class Test
+			Test(policy, 
+			      @"class Test
 {
 				public int Prop { get;
 				}
-}",@"class Test
+}", @"class Test
 {
 	public int Prop { get; }
 }");
 		}
-		[Test]
-		public void TestPropertyIndentationClosingBracketCorrection2 ()
-		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
 
-			Test (policy, 
-@"class Test
+		[Test]
+		public void TestPropertyIndentationClosingBracketCorrection2()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+
+			Test(policy, 
+			      @"class Test
 {
 				public int Prop {
 					get;}
-}",@"class Test
+}", @"class Test
 {
 	public int Prop {
 		get;
@@ -585,10 +764,10 @@ set;
 		}
 
 		[Test]
-		public void TestPropertyCorrection()
+		public void TestAutoPropertyCorrection()
 		{
 			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
-			policy.PropertyFormatting = PropertyFormatting.ForceNewLine;
+			policy.AutoPropertyFormatting = PropertyFormatting.ForceNewLine;
 			Test(policy, 
 			     @"class Test
 {
@@ -603,13 +782,51 @@ set;
 		}
 
 		[Test]
-		public void TestIndentEventBody ()
+		public void TestSimplePropertyCorrection()
 		{
-			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono ();
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+			policy.SimplePropertyFormatting = PropertyFormatting.ForceNewLine;
+			Test(policy, 
+			     @"class Test
+{
+				public int Prop { get { ; }         private set {; } }
+}", @"class Test
+{
+	public int Prop {
+		get { ; }
+		private set { ; }
+	}
+}");
+		}
+
+		[Test]
+		public void TestEventField()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
+
+			Test(policy, 
+@"class Test
+{
+	public   event 
+
+ EventHandler    TestMe           ;
+}",
+@"class Test
+{
+	public event EventHandler TestMe;
+}");
+
+		}
+
+
+		[Test]
+		public void TestIndentEventBody()
+		{
+			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
 			policy.IndentEventBody = true;
 			
-			var adapter = Test (policy, 
-@"class Test
+			var adapter = Test(policy, 
+			                    @"class Test
 {
 	public event EventHandler TestMe {
 								add {
@@ -620,7 +837,7 @@ remove {
 }
 	}
 }",
-@"class Test
+			                    @"class Test
 {
 	public event EventHandler TestMe {
 		add {
@@ -632,8 +849,8 @@ remove {
 	}
 }");
 			policy.IndentEventBody = false;
-			Continue (policy, adapter,
-@"class Test
+			Continue(policy, adapter,
+			          @"class Test
 {
 	public event EventHandler TestMe {
 	add {
@@ -646,7 +863,6 @@ remove {
 }");
 		}
 
-		
 		/// <summary>
 		/// Bug 9990 - Formatting a document on save splits event into 'e vent'
 		/// </summary>
@@ -654,7 +870,7 @@ remove {
 		public void TestBug9990()
 		{
 			CSharpFormattingOptions policy = FormattingOptionsFactory.CreateMono();
-			policy.PropertyFormatting = PropertyFormatting.ForceNewLine;
+			policy.SimplePropertyFormatting = PropertyFormatting.ForceNewLine;
 			Test(policy, 
 			     @"class Test
 {

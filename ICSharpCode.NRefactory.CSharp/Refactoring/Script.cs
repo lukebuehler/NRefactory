@@ -29,6 +29,8 @@ using System.IO;
 using ICSharpCode.NRefactory.Editor;
 using ICSharpCode.NRefactory.TypeSystem;
 using System.Threading.Tasks;
+using System.Linq;
+using System.Text;
 
 namespace ICSharpCode.NRefactory.CSharp.Refactoring
 {
@@ -103,8 +105,12 @@ namespace ICSharpCode.NRefactory.CSharp.Refactoring
 		/// on every <see cref="Replace(int,int,string)"/> call.
 		/// </returns>
 		protected abstract ISegment CreateTrackedSegment(int offset, int length);
-		
-		protected ISegment GetSegment(AstNode node)
+
+		/// <summary>
+		/// Gets the current text segment of the specified AstNode.
+		/// </summary>
+		/// <param name="node">The node to get the segment for.</param>
+		public ISegment GetSegment(AstNode node)
 		{
 			ISegment segment;
 			if (segmentsForInsertedNodes.TryGetValue(node, out segment))
@@ -176,7 +182,131 @@ namespace ICSharpCode.NRefactory.CSharp.Refactoring
 			output.RegisterTrackedSegments(this, startOffset);
 			CorrectFormatting (null, newNode);
 		}
-		
+
+		/// <summary>
+		/// Changes the modifier of a given entity declaration.
+		/// </summary>
+		/// <param name="entity">The entity.</param>
+		/// <param name="modifiers">The new modifiers.</param>
+		public void ChangeModifier(EntityDeclaration entity, Modifiers modifiers)
+		{
+			var dummyEntity = new MethodDeclaration ();
+			dummyEntity.Modifiers = modifiers;
+
+			int offset;
+			int endOffset;
+
+			if (entity.ModifierTokens.Any ()) {
+				offset = GetCurrentOffset(entity.ModifierTokens.First ().StartLocation);
+				endOffset = GetCurrentOffset(entity.ModifierTokens.Last ().GetNextSibling (s => s.Role != Roles.NewLine && s.Role != Roles.Whitespace).StartLocation);
+			} else {
+				var child = entity.FirstChild;
+				while (child.NodeType == NodeType.Whitespace ||
+				       child.Role == EntityDeclaration.AttributeRole ||
+				       child.Role == Roles.NewLine) {
+					child = child.NextSibling;
+				}
+				offset = endOffset = GetCurrentOffset(child.StartLocation);
+			}
+
+			var sb = new StringBuilder();
+			foreach (var modifier in dummyEntity.ModifierTokens) {
+				sb.Append(modifier.ToString());
+				sb.Append(' ');
+			}
+
+			Replace(offset, endOffset - offset, sb.ToString());
+		}
+
+		public void ChangeModifier(ParameterDeclaration param, ParameterModifier modifier)
+		{
+			var child = param.FirstChild;
+			Func<AstNode, bool> pred = s => s.Role == ParameterDeclaration.RefModifierRole || s.Role == ParameterDeclaration.OutModifierRole || s.Role == ParameterDeclaration.ParamsModifierRole || s.Role == ParameterDeclaration.ThisModifierRole;
+			if (!pred(child))
+				child = child.GetNextSibling(pred); 
+
+			int offset;
+			int endOffset;
+
+			if (child != null) {
+				offset = GetCurrentOffset(child.StartLocation);
+				endOffset = GetCurrentOffset(child.GetNextSibling (s => s.Role != Roles.NewLine && s.Role != Roles.Whitespace).StartLocation);
+			} else {
+				offset = endOffset = GetCurrentOffset(param.Type.StartLocation);
+			}
+			string modString;
+			switch (modifier) {
+				case ParameterModifier.None:
+					modString = "";
+					break;
+				case ParameterModifier.Ref:
+					modString = "ref ";
+					break;
+				case ParameterModifier.Out:
+					modString = "out ";
+					break;
+				case ParameterModifier.Params:
+					modString = "params ";
+					break;
+				case ParameterModifier.This:
+					modString = "this ";
+					break;
+				default:
+					throw new ArgumentOutOfRangeException();
+			}
+			Replace(offset, endOffset - offset, modString);
+		}
+
+		/// <summary>
+		/// Changes the base types of a type declaration.
+		/// </summary>
+		/// <param name="type">The type declaration to modify.</param>
+		/// <param name="baseTypes">The new base types.</param>
+		public void ChangeBaseTypes(TypeDeclaration type, IEnumerable<AstType> baseTypes)
+		{
+			var dummyType = new TypeDeclaration();
+			dummyType.BaseTypes.AddRange(baseTypes);
+
+			int offset;
+			int endOffset;
+			var sb = new StringBuilder();
+
+			if (type.BaseTypes.Any ()) {
+				offset = GetCurrentOffset(type.ColonToken.StartLocation);
+				endOffset = GetCurrentOffset(type.BaseTypes.Last ().EndLocation);
+			} else {
+				sb.Append(' ');
+				if (type.TypeParameters.Any()) {
+					offset = endOffset = GetCurrentOffset(type.RChevronToken.EndLocation);
+				} else {
+					offset = endOffset = GetCurrentOffset(type.NameToken.EndLocation);
+				}
+			}
+
+			if (dummyType.BaseTypes.Any()) {
+				sb.Append(": ");
+				sb.Append(string.Join(", ", dummyType.BaseTypes));
+			}
+
+			Replace(offset, endOffset - offset, sb.ToString());
+			FormatText(type);
+		}
+
+
+		/// <summary>
+		/// Adds an attribute section to a given entity.
+		/// </summary>
+		/// <param name="entity">The entity to add the attribute to.</param>
+		/// <param name="attr">The attribute to add.</param>
+		public void AddAttribute(EntityDeclaration entity, AttributeSection attr)
+		{
+			var node = entity.FirstChild;
+			while (node.NodeType == NodeType.Whitespace || node.Role == Roles.Attribute) {
+				node = node.NextSibling;
+			}
+			InsertBefore(node, attr);
+		}
+
 		public virtual Task Link (params AstNode[] nodes)
 		{
 			// Default implementation: do nothing
@@ -186,6 +316,11 @@ namespace ICSharpCode.NRefactory.CSharp.Refactoring
 			var tcs = new TaskCompletionSource<object>();
 			tcs.SetResult(null);
 			return tcs.Task;
+		}
+
+		public virtual Task Link (IEnumerable<AstNode> nodes)
+		{
+			return Link(nodes.ToArray());
 		}
 		
 		public void Replace (AstNode node, AstNode replaceWith)
@@ -216,6 +351,29 @@ namespace ICSharpCode.NRefactory.CSharp.Refactoring
 		}
 		
 		public abstract void Remove (AstNode node, bool removeEmptyLine = true);
+
+		/// <summary>
+		/// Safely removes an attribue from it's section (removes empty sections).
+		/// </summary>
+		/// <param name="attr">The attribute to be removed.</param>
+		public void RemoveAttribute(Attribute attr)
+		{
+			AttributeSection section = (AttributeSection)attr.Parent;
+			if (section.Attributes.Count == 1) {
+				Remove(section);
+				return;
+			}
+
+			var newSection = (AttributeSection)section.Clone();
+			int i = 0;
+			foreach (var a in section.Attributes) {
+				if (a == attr)
+					break;
+				i++;
+			}
+			newSection.Attributes.Remove (newSection.Attributes.ElementAt (i));
+			Replace(section, newSection);
+		}
 		
 		public abstract void FormatText (IEnumerable<AstNode> nodes);
 
@@ -229,6 +387,19 @@ namespace ICSharpCode.NRefactory.CSharp.Refactoring
 			// default implementation: do nothing
 			// Derived classes are supposed to set the text editor's selection
 		}
+
+		public virtual void Select (TextLocation start, TextLocation end)
+		{
+			// default implementation: do nothing
+			// Derived classes are supposed to set the text editor's selection
+		}
+
+		public virtual void Select (int startOffset, int endOffset)
+		{
+			// default implementation: do nothing
+			// Derived classes are supposed to set the text editor's selection
+		}
+
 		
 		public enum InsertPosition
 		{
@@ -238,24 +409,26 @@ namespace ICSharpCode.NRefactory.CSharp.Refactoring
 			End
 		}
 		
-		public virtual Task InsertWithCursor(string operation, InsertPosition defaultPosition, IEnumerable<AstNode> node)
+		public virtual Task<Script> InsertWithCursor(string operation, InsertPosition defaultPosition, IEnumerable<AstNode> node)
 		{
 			throw new NotImplementedException();
 		}
 		
-		public virtual Task InsertWithCursor(string operation, ITypeDefinition parentType, IEnumerable<AstNode> node)
+		public virtual Task<Script> InsertWithCursor(string operation, ITypeDefinition parentType, Func<Script, RefactoringContext, IEnumerable<AstNode>> nodeCallback)
 		{
 			throw new NotImplementedException();
 		}
 		
-		public Task InsertWithCursor(string operation, InsertPosition defaultPosition, params AstNode[] nodes)
+		public Task<Script> InsertWithCursor(string operation, InsertPosition defaultPosition, params AstNode[] nodes)
 		{
 			return InsertWithCursor(operation, defaultPosition, (IEnumerable<AstNode>)nodes);
 		}
-		
-		public Task InsertWithCursor(string operation, ITypeDefinition parentType, params AstNode[] nodes)
+
+		public Task<Script> InsertWithCursor(string operation, ITypeDefinition parentType, Func<Script, RefactoringContext, AstNode> nodeCallback)
 		{
-			return InsertWithCursor(operation, parentType, (IEnumerable<AstNode>)nodes);
+			return InsertWithCursor(operation, parentType, (Func<Script, RefactoringContext, IEnumerable<AstNode>>)delegate (Script s, RefactoringContext ctx) {
+				return new AstNode[] { nodeCallback(s, ctx) };
+			});
 		}
 		
 		protected virtual int GetIndentLevelAt (int offset)
@@ -346,56 +519,19 @@ namespace ICSharpCode.NRefactory.CSharp.Refactoring
 		}
 		
 		/// <summary>
-		/// Renames the specified entity.
+		/// Renames the specified symbol.
 		/// </summary>
-		/// <param name='entity'>
-		/// The Entity to rename
+		/// <param name='symbol'>
+		/// The symbol to rename
 		/// </param>
 		/// <param name='name'>
 		/// The new name, if null the user is prompted for a new name.
 		/// </param>
-		public virtual void Rename(IEntity entity, string name = null)
+		public virtual void Rename(ISymbol symbol, string name = null)
 		{
 		}
 		
-		/// <summary>
-		/// Renames the specified entity.
-		/// </summary>
-		/// <param name='type'>
-		/// The Entity to rename
-		/// </param>
-		/// <param name='name'>
-		/// The new name, if null the user is prompted for a new name.
-		/// </param>
-		public virtual void RenameTypeParameter (IType type, string name = null)
-		{
-		}
-		
-		/// <summary>
-		/// Renames the specified variable.
-		/// </summary>
-		/// <param name='variable'>
-		/// The Variable to rename
-		/// </param>
-		/// <param name='name'>
-		/// The new name, if null the user is prompted for a new name.
-		/// </param>
-		public virtual void Rename(IVariable variable, string name = null)
-		{
-		}
-
-		/// <summary>
-		/// Renames the specified namespace.
-		/// </summary>
-		/// <param name="ns">The namespace</param>
-		/// <param name='name'>
-		/// The new name, if null the user is prompted for a new name.
-		/// </param>
-		public virtual void Rename(INamespace ns, string name = null)
-		{
-		}
-
-		public virtual void DoGlobalOperationOn(IEntity entity, Action<RefactoringContext, Script, AstNode> callback, string operationDescripton = null)
+		public virtual void DoGlobalOperationOn(IEnumerable<IEntity> entity, Action<RefactoringContext, Script, IEnumerable<AstNode>> callback, string operationDescripton = null)
 		{
 		}
 
@@ -430,5 +566,29 @@ namespace ICSharpCode.NRefactory.CSharp.Refactoring
 		{
 		}
 	}
-}
 
+	static class ExtMethods
+	{
+		public static void ContinueScript (this Task task, Action act)
+		{
+			if (task.IsCompleted) {
+				act();
+			} else {
+				task.ContinueWith(delegate {
+					act();
+				}, TaskScheduler.FromCurrentSynchronizationContext());
+			}
+		}
+
+		public static void ContinueScript (this Task<Script> task, Action<Script> act)
+		{
+			if (task.IsCompleted) {
+				act(task.Result);
+			} else {
+				task.ContinueWith(delegate {
+					act(task.Result);
+				}, TaskScheduler.FromCurrentSynchronizationContext());
+			}
+		}
+	}
+}

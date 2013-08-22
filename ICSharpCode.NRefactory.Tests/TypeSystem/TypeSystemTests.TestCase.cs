@@ -46,7 +46,11 @@ namespace ICSharpCode.NRefactory.TypeSystem.TestCase
 		public ParamsAttribute(params object[] x) {}
 		
 		[Params(Property = new string[] { "a", "b" })]
-		public string[] Property { get; set; }
+		public string[] Property { 
+			[return: Params("Attribute on return type of getter")]
+			get { return null; }
+			set { }
+		}
 	}
 	
 	[Double(1)]
@@ -87,9 +91,11 @@ namespace ICSharpCode.NRefactory.TypeSystem.TestCase
 		public int PropertyWithProtectedSetter { get; protected set; }
 		
 		public object PropertyWithPrivateSetter { get; private set; }
-		
+
 		public object PropertyWithoutSetter { get { return null; } }
-		
+
+		public object PropertyWithPrivateGetter { private get; set; }
+
 		public string this[int index] { get { return "Test"; } set {} }
 	}
 	
@@ -390,5 +396,29 @@ namespace ICSharpCode.NRefactory.TypeSystem.TestCase
 		int IExplicitImplementationTests.P { get; set; }
 		event Action IExplicitImplementationTests.E { add {} remove {} }
 		int IExplicitImplementationTests.this[int x] { get { return 0; } set {} }
+	}
+
+	[TypeTest(C, typeof(Inner), typeof(int)), My]
+	public class ClassWithAttributesUsingNestedMembers {
+		sealed class MyAttribute : Attribute {}
+
+		const int C = 42;
+		class Inner {
+		}
+
+		[TypeTest(C, typeof(Inner), typeof(int)), My]
+		public int P { get; set; }
+
+		[TypeTest(C, typeof(Inner), typeof(int)), My]
+		class AttributedInner {
+		}
+
+		[TypeTest(C, typeof(Inner), typeof(int)), My]
+		class AttributedInner2 {
+			sealed class MyAttribute : Attribute {}
+
+			const int C = 43;
+			class Inner {}
+		}
 	}
 }

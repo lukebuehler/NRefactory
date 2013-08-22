@@ -67,7 +67,7 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			Assert.AreEqual(typeof(SimplePublicClass).FullName + ".Method", method.FullName);
 			Assert.AreSame(c, method.DeclaringType);
 			Assert.AreEqual(Accessibility.Public, method.Accessibility);
-			Assert.AreEqual(EntityType.Method, method.EntityType);
+			Assert.AreEqual(SymbolKind.Method, method.SymbolKind);
 			Assert.IsFalse(method.IsVirtual);
 			Assert.IsFalse(method.IsStatic);
 			Assert.AreEqual(0, method.Parameters.Count);
@@ -83,7 +83,8 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			Assert.AreEqual(SpecialType.Dynamic, testClass.Properties.Single().ReturnType);
 			Assert.AreEqual(0, testClass.Properties.Single().Attributes.Count);
 		}
-		
+		#if !__MonoCS__
+
 		[Test]
 		public void DynamicTypeInGenerics()
 		{
@@ -111,7 +112,8 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			IMethod m7 = testClass.Methods.Single(me => me.Name == "DynamicGenerics7");
 			Assert.AreEqual("System.Action`3[[System.Int32[][,]],[dynamic],[System.Object]]", m7.Parameters[0].Type.ReflectionName);
 		}
-		
+		#endif
+
 		[Test]
 		public void DynamicParameterHasNoAttributes()
 		{
@@ -161,8 +163,8 @@ namespace ICSharpCode.NRefactory.TypeSystem
 		public void TestClassTypeParameters()
 		{
 			var testClass = GetTypeDefinition(typeof(GenericClass<,>));
-			Assert.AreEqual(EntityType.TypeDefinition, testClass.TypeParameters[0].OwnerType);
-			Assert.AreEqual(EntityType.TypeDefinition, testClass.TypeParameters[1].OwnerType);
+			Assert.AreEqual(SymbolKind.TypeDefinition, testClass.TypeParameters[0].OwnerType);
+			Assert.AreEqual(SymbolKind.TypeDefinition, testClass.TypeParameters[1].OwnerType);
 			Assert.AreSame(testClass.TypeParameters[1], testClass.TypeParameters[0].DirectBaseTypes.First());
 		}
 		
@@ -174,8 +176,8 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			IMethod m = testClass.Methods.Single(me => me.Name == "TestMethod");
 			Assert.AreEqual("K", m.TypeParameters[0].Name);
 			Assert.AreEqual("V", m.TypeParameters[1].Name);
-			Assert.AreEqual(EntityType.Method, m.TypeParameters[0].OwnerType);
-			Assert.AreEqual(EntityType.Method, m.TypeParameters[1].OwnerType);
+			Assert.AreEqual(SymbolKind.Method, m.TypeParameters[0].OwnerType);
+			Assert.AreEqual(SymbolKind.Method, m.TypeParameters[1].OwnerType);
 			
 			Assert.AreEqual("System.IComparable`1[[``1]]", m.TypeParameters[0].DirectBaseTypes.First().ReflectionName);
 			Assert.AreSame(m.TypeParameters[0], m.TypeParameters[1].DirectBaseTypes.First());
@@ -188,7 +190,7 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			
 			IMethod m = testClass.Methods.Single(me => me.Name == "GetIndex");
 			Assert.AreEqual("T", m.TypeParameters[0].Name);
-			Assert.AreEqual(EntityType.Method, m.TypeParameters[0].OwnerType);
+			Assert.AreEqual(SymbolKind.Method, m.TypeParameters[0].OwnerType);
 			Assert.AreSame(m, m.TypeParameters[0].Owner);
 			
 			ParameterizedType constraint = (ParameterizedType)m.TypeParameters[0].DirectBaseTypes.First();
@@ -210,7 +212,7 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			));
 			
 			Assert.AreEqual("T", m.TypeParameters[0].Name);
-			Assert.AreEqual(EntityType.Method, m.TypeParameters[0].OwnerType);
+			Assert.AreEqual(SymbolKind.Method, m.TypeParameters[0].OwnerType);
 			Assert.AreSame(m, m.TypeParameters[0].Owner);
 			
 			ParameterizedType constraint = (ParameterizedType)m.TypeParameters[0].DirectBaseTypes.First();
@@ -336,6 +338,19 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			Assert.AreEqual(Accessibility.Private, p.Setter.Accessibility);
 			Assert.IsTrue(p.Getter.HasBody);
 		}
+
+		[Test]
+		public void PropertyWithPrivateGetter()
+		{
+			var testClass = GetTypeDefinition(typeof(PropertyTest));
+			IProperty p = testClass.Properties.Single(pr => pr.Name == "PropertyWithPrivateGetter");
+			Assert.IsTrue(p.CanGet);
+			Assert.IsTrue(p.CanSet);
+			Assert.AreEqual(Accessibility.Public, p.Accessibility);
+			Assert.AreEqual(Accessibility.Private, p.Getter.Accessibility);
+			Assert.AreEqual(Accessibility.Public, p.Setter.Accessibility);
+			Assert.IsTrue(p.Getter.HasBody);
+		}
 		
 		[Test]
 		public void PropertyWithoutSetter()
@@ -364,7 +379,7 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			var testClass = GetTypeDefinition(typeof(PropertyTest));
 			IProperty p = testClass.Properties.Single(pr => pr.IsIndexer);
 			Assert.IsTrue(p.CanGet);
-			Assert.AreEqual(EntityType.Accessor, p.Getter.EntityType);
+			Assert.AreEqual(SymbolKind.Accessor, p.Getter.SymbolKind);
 			Assert.AreEqual("get_Item", p.Getter.Name);
 			Assert.AreEqual(Accessibility.Public, p.Getter.Accessibility);
 			Assert.AreEqual(new[] { "index" }, p.Getter.Parameters.Select(x => x.Name).ToArray());
@@ -378,7 +393,7 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			var testClass = GetTypeDefinition(typeof(PropertyTest));
 			IProperty p = testClass.Properties.Single(pr => pr.IsIndexer);
 			Assert.IsTrue(p.CanSet);
-			Assert.AreEqual(EntityType.Accessor, p.Setter.EntityType);
+			Assert.AreEqual(SymbolKind.Accessor, p.Setter.SymbolKind);
 			Assert.AreEqual("set_Item", p.Setter.Name);
 			Assert.AreEqual(Accessibility.Public, p.Setter.Accessibility);
 			Assert.AreEqual(new[] { "index", "value" }, p.Setter.Parameters.Select(x => x.Name).ToArray());
@@ -862,6 +877,15 @@ namespace ICSharpCode.NRefactory.TypeSystem
 		}
 		
 		[Test]
+		public void ParamsAttribute_Getter_ReturnType()
+		{
+			ITypeDefinition type = GetTypeDefinition(typeof(ParamsAttribute));
+			IProperty prop = type.Properties.Single(p => p.Name == "Property");
+			Assert.AreEqual(0, prop.Getter.Attributes.Count);
+			Assert.AreEqual(1, prop.Getter.ReturnTypeAttributes.Count);
+		}
+		
+		[Test]
 		public void DoubleAttribute_ImplicitNumericConversion()
 		{
 			ITypeDefinition type = GetTypeDefinition(typeof(DoubleAttribute));
@@ -1039,7 +1063,7 @@ namespace ICSharpCode.NRefactory.TypeSystem
 		public void ExplicitIndexerImplementationReturnsTheCorrectMembers() {
 			ITypeDefinition type = GetTypeDefinition(typeof(ClassThatImplementsIndexersExplicitly));
 
-			Assert.That(type.Properties.All(p => p.EntityType == EntityType.Indexer));
+			Assert.That(type.Properties.All(p => p.SymbolKind == SymbolKind.Indexer));
 			Assert.That(type.Properties.All(p => p.ImplementedInterfaceMembers.Count == 1));
 			Assert.That(type.Properties.All(p => p.Getter.ImplementedInterfaceMembers.Count == 1));
 			Assert.That(type.Properties.All(p => p.Setter.ImplementedInterfaceMembers.Count == 1));
@@ -1332,6 +1356,45 @@ namespace ICSharpCode.NRefactory.TypeSystem
 			Assert.AreEqual(events.SelectMany(e => e.AddAccessor.ImplementedInterfaceMembers).Single(), ievent.AddAccessor);
 			Assert.That(events.Select(e => e.RemoveAccessor.ImplementedInterfaceMembers.Count).ToList(), Is.EquivalentTo(new[] { 0, 1 }));
 			Assert.AreEqual(events.SelectMany(e => e.RemoveAccessor.ImplementedInterfaceMembers).Single(), ievent.RemoveAccessor);
+		}
+
+		[Test]
+		public void AttributesUsingNestedMembers() {
+			var type = GetTypeDefinition(typeof(ClassWithAttributesUsingNestedMembers));
+			var inner = type.GetNestedTypes().Single(t => t.Name == "Inner");
+			var myAttribute = type.GetNestedTypes().Single(t => t.Name == "MyAttribute");
+			var typeTypeTestAttr = type.Attributes.Single(a => a.AttributeType.Name == "TypeTestAttribute");
+			Assert.AreEqual(42, typeTypeTestAttr.PositionalArguments[0].ConstantValue);
+			Assert.IsInstanceOf<TypeOfResolveResult>(typeTypeTestAttr.PositionalArguments[1]);
+			Assert.AreEqual(inner, ((TypeOfResolveResult)typeTypeTestAttr.PositionalArguments[1]).ReferencedType);
+			var typeMyAttr = type.Attributes.Single(a => a.AttributeType.Name == "MyAttribute");
+			Assert.AreEqual(myAttribute, typeMyAttr.AttributeType);
+
+			var prop = type.GetProperties().Single(p => p.Name == "P");
+			var propTypeTestAttr = prop.Attributes.Single(a => a.AttributeType.Name == "TypeTestAttribute");
+			Assert.AreEqual(42, propTypeTestAttr.PositionalArguments[0].ConstantValue);
+			Assert.IsInstanceOf<TypeOfResolveResult>(propTypeTestAttr.PositionalArguments[1]);
+			Assert.AreEqual(inner, ((TypeOfResolveResult)propTypeTestAttr.PositionalArguments[1]).ReferencedType);
+			var propMyAttr = prop.Attributes.Single(a => a.AttributeType.Name == "MyAttribute");
+			Assert.AreEqual(myAttribute, propMyAttr.AttributeType);
+
+			var attributedInner = (ITypeDefinition)type.GetNestedTypes().Single(t => t.Name == "AttributedInner");
+			var innerTypeTestAttr = attributedInner.Attributes.Single(a => a.AttributeType.Name == "TypeTestAttribute");
+			Assert.AreEqual(42, innerTypeTestAttr.PositionalArguments[0].ConstantValue);
+			Assert.IsInstanceOf<TypeOfResolveResult>(innerTypeTestAttr.PositionalArguments[1]);
+			Assert.AreEqual(inner, ((TypeOfResolveResult)innerTypeTestAttr.PositionalArguments[1]).ReferencedType);
+			var innerMyAttr = attributedInner.Attributes.Single(a => a.AttributeType.Name == "MyAttribute");
+			Assert.AreEqual(myAttribute, innerMyAttr.AttributeType);
+
+			var attributedInner2 = (ITypeDefinition)type.GetNestedTypes().Single(t => t.Name == "AttributedInner2");
+			var inner2 = attributedInner2.GetNestedTypes().Single(t => t.Name == "Inner");
+			var myAttribute2 = attributedInner2.GetNestedTypes().Single(t => t.Name == "MyAttribute");
+			var inner2TypeTestAttr = attributedInner2.Attributes.Single(a => a.AttributeType.Name == "TypeTestAttribute");
+			Assert.AreEqual(43, inner2TypeTestAttr.PositionalArguments[0].ConstantValue);
+			Assert.IsInstanceOf<TypeOfResolveResult>(inner2TypeTestAttr.PositionalArguments[1]);
+			Assert.AreEqual(inner2, ((TypeOfResolveResult)inner2TypeTestAttr.PositionalArguments[1]).ReferencedType);
+			var inner2MyAttr = attributedInner2.Attributes.Single(a => a.AttributeType.Name == "MyAttribute");
+			Assert.AreEqual(myAttribute2, inner2MyAttr.AttributeType);
 		}
 	}
 }

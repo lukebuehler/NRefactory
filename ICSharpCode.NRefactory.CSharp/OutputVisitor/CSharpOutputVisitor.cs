@@ -989,12 +989,6 @@ namespace ICSharpCode.NRefactory.CSharp
 			EndNode(pointerReferenceExpression);
 		}
 		
-		public void VisitEmptyExpression(EmptyExpression emptyExpression)
-		{
-			StartNode(emptyExpression);
-			EndNode(emptyExpression);
-		}
-
 		#region VisitPrimitiveExpression
 		public void VisitPrimitiveExpression(PrimitiveExpression primitiveExpression)
 		{
@@ -1465,10 +1459,11 @@ namespace ICSharpCode.NRefactory.CSharp
 		{
 			StartNode(namespaceDeclaration);
 			WriteKeyword(Roles.NamespaceKeyword);
-			WriteQualifiedIdentifier(namespaceDeclaration.Identifiers);
+			namespaceDeclaration.NamespaceName.AcceptVisitor (this);
 			OpenBrace(policy.NamespaceBraceStyle);
 			foreach (var member in namespaceDeclaration.Members) {
 				member.AcceptVisitor(this);
+				MaybeNewLinesAfterUsings(member);
 			}
 			CloseBrace(policy.NamespaceBraceStyle);
 			OptionalSemicolon();
@@ -1526,7 +1521,13 @@ namespace ICSharpCode.NRefactory.CSharp
 				OptionalComma();
 				NewLine();
 			} else {
+				bool first = true;
 				foreach (var member in typeDeclaration.Members) {
+					if (!first) {
+						for (int i = 0; i < policy.BlankLinesBetweenMembers; i++)
+							NewLine();
+					}
+					first = false;
 					member.AcceptVisitor(this);
 				}
 			}
@@ -1604,10 +1605,13 @@ namespace ICSharpCode.NRefactory.CSharp
 			foreach (var node in blockStatement.Statements) {
 				node.AcceptVisitor(this);
 			}
+			AstNode pos = positionStack.Pop();
+			WriteSpecials(pos, null);
+			containerStack.Pop();
 			CloseBrace(style);
 			if (!(blockStatement.Parent is Expression))
 				NewLine();
-			EndNode(blockStatement);
+			formatter.EndNode(blockStatement);
 		}
 		
 		public void VisitBreakStatement(BreakStatement breakStatement)
@@ -2322,12 +2326,25 @@ namespace ICSharpCode.NRefactory.CSharp
 			}
 			EndNode(variableInitializer);
 		}
+
+		void MaybeNewLinesAfterUsings(AstNode node)
+		{
+			var nextSibling = node.NextSibling;
+			while (nextSibling is WhitespaceNode || nextSibling is NewLineNode)
+				nextSibling = nextSibling.NextSibling;
+
+			if ((node is UsingDeclaration || node is UsingAliasDeclaration) && !(nextSibling is UsingDeclaration || nextSibling is UsingAliasDeclaration)) {
+				for (int i = 0; i < policy.BlankLinesAfterUsings; i++)
+					NewLine();
+			}
+		}
 		
 		public void VisitSyntaxTree(SyntaxTree syntaxTree)
 		{
 			// don't do node tracking as we visit all children directly
 			foreach (AstNode node in syntaxTree.Children) {
 				node.AcceptVisitor(this);
+				MaybeNewLinesAfterUsings(node);
 			}
 		}
 		
@@ -2597,18 +2614,18 @@ namespace ICSharpCode.NRefactory.CSharp
 			StartNode(documentationReference);
 			if (!documentationReference.DeclaringType.IsNull) {
 				documentationReference.DeclaringType.AcceptVisitor(this);
-				if (documentationReference.EntityType != EntityType.TypeDefinition) {
+				if (documentationReference.SymbolKind != SymbolKind.TypeDefinition) {
 					WriteToken(Roles.Dot);
 				}
 			}
-			switch (documentationReference.EntityType) {
-				case EntityType.TypeDefinition:
+			switch (documentationReference.SymbolKind) {
+				case SymbolKind.TypeDefinition:
 					// we already printed the DeclaringType
 					break;
-				case EntityType.Indexer:
+				case SymbolKind.Indexer:
 					WriteKeyword(IndexerDeclaration.ThisKeywordRole);
 					break;
-				case EntityType.Operator:
+				case SymbolKind.Operator:
 					var opType = documentationReference.OperatorType;
 					if (opType == OperatorType.Explicit) {
 						WriteKeyword(OperatorDeclaration.ExplicitRole);
@@ -2630,7 +2647,7 @@ namespace ICSharpCode.NRefactory.CSharp
 			WriteTypeArguments(documentationReference.TypeArguments);
 			if (documentationReference.HasParameterList) {
 				Space(policy.SpaceBeforeMethodDeclarationParentheses);
-				if (documentationReference.EntityType == EntityType.Indexer) {
+				if (documentationReference.SymbolKind == SymbolKind.Indexer) {
 					WriteCommaSeparatedListInBrackets(documentationReference.Parameters, policy.SpaceWithinMethodDeclarationParentheses);
 				} else {
 					WriteCommaSeparatedListInParenthesis(documentationReference.Parameters, policy.SpaceWithinMethodDeclarationParentheses);
